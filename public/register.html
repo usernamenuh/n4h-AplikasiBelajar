@@ -1,0 +1,218 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Register - Catatan Belajar</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 0;
+            padding: 20px;
+            background-color: #f5f5f5;
+        }
+        .container {
+            max-width: 400px;
+            margin: 0 auto;
+            background: white;
+            padding: 20px;
+            border-radius: 10px;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+        }
+        h1 {
+            color: #333;
+            text-align: center;
+            margin-bottom: 20px;
+        }
+        input {
+            width: 100%;
+            padding: 10px;
+            margin: 8px 0;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            box-sizing: border-box;
+        }
+        button {
+            width: 100%;
+            padding: 10px;
+            background-color: #2196F3;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            margin-top: 10px;
+        }
+        button:hover {
+            background-color: #1976D2;
+        }
+        p {
+            text-align: center;
+            margin-top: 15px;
+        }
+        a {
+            color: #2196F3;
+            text-decoration: none;
+        }
+        a:hover {
+            text-decoration: underline;
+        }
+        .verification-section {
+            display: none;
+            margin-top: 20px;
+            padding-top: 20px;
+            border-top: 1px solid #eee;
+        }
+        .info-message {
+            background-color: #E3F2FD;
+            color: #1976D2;
+            padding: 10px;
+            border-radius: 4px;
+            margin: 10px 0;
+            text-align: center;
+        }
+        .error-message {
+            background-color: #FFEBEE;
+            color: #C62828;
+            padding: 10px;
+            border-radius: 4px;
+            margin: 10px 0;
+            text-align: center;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Register Akun</h1>
+        <div id="registerForm">
+            <input type="text" id="username" placeholder="Username">
+            <input type="email" id="email" placeholder="Email">
+            <input type="password" id="password" placeholder="Password">
+            <button id="registerBtn">Daftar</button>
+            <p>Sudah punya akun? <a href="login.html">Login di sini</a></p>
+        </div>
+
+        <div id="verificationSection" class="verification-section">
+            <div class="info-message">
+                Kode verifikasi telah dikirim ke email Anda. Silakan cek inbox atau folder spam.
+            </div>
+            <input type="text" id="verificationCode" placeholder="Masukkan kode verifikasi">
+            <button id="verifyBtn">Verifikasi</button>
+            <button id="resendBtn">Kirim Ulang Kode</button>
+        </div>
+    </div>
+
+    <script type="module">
+        import { auth, db } from "./firebase.js";
+        import { createUserWithEmailAndPassword, signOut } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js";
+        import { ref, set, get } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-database.js";
+
+        const registerForm = document.getElementById('registerForm');
+        const verificationSection = document.getElementById('verificationSection');
+        const registerBtn = document.getElementById('registerBtn');
+        const verifyBtn = document.getElementById('verifyBtn');
+        const resendBtn = document.getElementById('resendBtn');
+        let tempUser = null;
+
+        // Fungsi untuk menghasilkan kode verifikasi
+        function generateVerificationCode() {
+            return Math.floor(100000 + Math.random() * 900000).toString();
+        }
+
+        // Fungsi untuk menyimpan kode verifikasi ke database
+        async function saveVerificationCode(uid, code) {
+            await set(ref(db, `verificationCodes/${uid}`), {
+                code: code,
+                timestamp: Date.now(),
+                verified: false
+            });
+        }
+
+        // Fungsi untuk mengirim email dengan kode verifikasi
+        async function sendVerificationEmail(email, code) {
+            // Di sini Anda perlu mengimplementasikan pengiriman email
+            // Anda bisa menggunakan layanan email seperti SendGrid, Mailgun, dll
+            // Untuk contoh ini, kita akan menggunakan alert
+            alert(`Kode verifikasi Anda adalah: ${code}\n\nSilakan masukkan kode ini untuk verifikasi akun Anda.`);
+        }
+
+        registerBtn.addEventListener("click", async () => {
+            const username = document.getElementById("username").value;
+            const email = document.getElementById("email").value;
+            const password = document.getElementById("password").value;
+
+            if (!username || !email || !password) {
+                alert("Semua field harus diisi!");
+                return;
+            }
+
+            try {
+                // Buat user baru
+                const userCredential = await createUserWithEmailAndPassword(auth, email, password);
+                tempUser = userCredential.user;
+
+                // Generate dan simpan kode verifikasi
+                const verificationCode = generateVerificationCode();
+                await saveVerificationCode(tempUser.uid, verificationCode);
+
+                // Simpan data user (dengan status unverified)
+                await set(ref(db, `users/${tempUser.uid}/profile`), {
+                    username: username,
+                    email: email,
+                    verified: false
+                });
+
+                // Kirim email dengan kode verifikasi
+                await sendVerificationEmail(email, verificationCode);
+
+                // Logout user karena belum terverifikasi
+                await signOut(auth);
+
+                // Tampilkan form verifikasi
+                registerForm.style.display = 'none';
+                verificationSection.style.display = 'block';
+
+            } catch (error) {
+                alert("Registrasi gagal: " + error.message);
+            }
+        });
+
+        verifyBtn.addEventListener("click", async () => {
+            const code = document.getElementById("verificationCode").value;
+            
+            try {
+                // Verifikasi kode dari database
+                const verificationRef = ref(db, `verificationCodes/${tempUser.uid}`);
+                const snapshot = await get(verificationRef);
+                const data = snapshot.val();
+
+                if (data && data.code === code) {
+                    // Update status verifikasi
+                    await set(ref(db, `users/${tempUser.uid}/profile/verified`), true);
+                    await set(ref(db, `verificationCodes/${tempUser.uid}/verified`), true);
+
+                    alert("Verifikasi berhasil! Silakan login.");
+                    window.location.href = "login.html";
+                } else {
+                    alert("Kode verifikasi tidak valid!");
+                }
+            } catch (error) {
+                alert("Verifikasi gagal: " + error.message);
+            }
+        });
+
+        resendBtn.addEventListener("click", async () => {
+            try {
+                // Generate kode baru
+                const verificationCode = generateVerificationCode();
+                await saveVerificationCode(tempUser.uid, verificationCode);
+
+                // Kirim email dengan kode baru
+                await sendVerificationEmail(tempUser.email, verificationCode);
+                alert("Kode verifikasi baru telah dikirim ke email Anda.");
+            } catch (error) {
+                alert("Gagal mengirim ulang kode: " + error.message);
+            }
+        });
+    </script>
+</body>
+</html>

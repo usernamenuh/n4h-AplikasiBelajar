@@ -1,0 +1,88 @@
+<!DOCTYPE html>
+<html lang="id">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Detik Belajar - HP</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 0;
+            padding: 20px;
+            background-color: #f5f5f5;
+        }
+        .container {
+            max-width: 600px;
+            margin: 0 auto;
+            background: white;
+            padding: 20px;
+            border-radius: 10px;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+        }
+        h1 {
+            color: #333;
+            text-align: center;
+            margin-bottom: 20px;
+        }
+        #detik {
+            font-size: 24px;
+            text-align: center;
+            color: #2196F3;
+            padding: 20px;
+            background: #E3F2FD;
+            border-radius: 5px;
+            margin: 20px 0;
+        }
+        .status {
+            text-align: center;
+            color: #666;
+            margin-top: 10px;
+        }
+    </style>
+</head>
+
+<body>
+    <div class="container">
+        <h1>Belajar Sedang Berlangsung</h1>
+        <div id="detik">Detik: 0</div>
+        <p class="status">Status: Menunggu...</p>
+    </div>
+
+    <script type="module">
+        import { auth, db } from "./firebase.js";
+        import { onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js";
+        import { ref, onValue } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-database.js";
+
+        let uid = null;
+        const detikEl = document.getElementById("detik");
+        const statusEl = document.querySelector(".status");
+
+        onAuthStateChanged(auth, user => {
+            if (user) {
+                uid = user.uid;
+                const belajarRef = ref(db, `users/${uid}/belajar`);
+                
+                onValue(belajarRef, (snapshot) => {
+                    const data = snapshot.val();
+                    if (data?.running && data?.startTime) {
+                        statusEl.textContent = "Status: Belajar aktif";
+                        const interval = setInterval(() => {
+                            const now = Date.now();
+                            const seconds = Math.floor((now - data.startTime) / 1000);
+                            detikEl.textContent = `Detik: ${seconds}`;
+                        }, 1000);
+                    } else {
+                        statusEl.textContent = "Status: Belum mulai belajar";
+                        detikEl.textContent = "Detik: 0";
+                    }
+                });
+            } else {
+                statusEl.textContent = "Status: Belum login";
+                detikEl.textContent = "Detik: 0";
+            }
+        });
+    </script>
+</body>
+
+</html>

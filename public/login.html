@@ -1,0 +1,119 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Login - Catatan Belajar</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      margin: 0;
+      padding: 20px;
+      background-color: #f5f5f5;
+    }
+    .container {
+      max-width: 400px;
+      margin: 0 auto;
+      background: white;
+      padding: 20px;
+      border-radius: 10px;
+      box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+    }
+    h1 {
+      color: #333;
+      text-align: center;
+      margin-bottom: 20px;
+    }
+    input {
+      width: 100%;
+      padding: 10px;
+      margin: 8px 0;
+      border: 1px solid #ddd;
+      border-radius: 4px;
+      box-sizing: border-box;
+    }
+    button {
+      width: 100%;
+      padding: 10px;
+      background-color: #2196F3;
+      color: white;
+      border: none;
+      border-radius: 4px;
+      cursor: pointer;
+      margin-top: 10px;
+    }
+    button:hover {
+      background-color: #1976D2;
+    }
+    p {
+      text-align: center;
+      margin-top: 15px;
+    }
+    a {
+      color: #2196F3;
+      text-decoration: none;
+    }
+    a:hover {
+      text-decoration: underline;
+    }
+    .error-message {
+      background-color: #FFEBEE;
+      color: #C62828;
+      padding: 10px;
+      border-radius: 4px;
+      margin: 10px 0;
+      text-align: center;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>Login Akun</h1>
+    <div id="loginForm">
+      <input type="email" id="email" placeholder="Email" />
+      <input type="password" id="password" placeholder="Password" />
+      <button id="loginBtn">Login</button>
+      <p>Belum punya akun? <a href="register.html">Daftar di sini</a></p>
+    </div>
+  </div>
+
+  <script type="module">
+    import { auth, db } from "./firebase.js";
+    import { signInWithEmailAndPassword, signOut } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js";
+    import { ref, get } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-database.js";
+
+    const loginBtn = document.getElementById("loginBtn");
+    const emailInput = document.getElementById("email");
+    const passwordInput = document.getElementById("password");
+
+    loginBtn.addEventListener("click", async () => {
+      const email = emailInput.value;
+      const password = passwordInput.value;
+
+      try {
+        // Coba login
+        const userCredential = await signInWithEmailAndPassword(auth, email, password);
+        const user = userCredential.user;
+
+        // Cek status verifikasi
+        const userProfileRef = ref(db, `users/${user.uid}/profile`);
+        const snapshot = await get(userProfileRef);
+        const profile = snapshot.val();
+
+        if (!profile || !profile.verified) {
+          // Jika belum terverifikasi, logout dan tampilkan pesan
+          await signOut(auth);
+          alert("Akun Anda belum diverifikasi. Silakan cek email Anda untuk kode verifikasi.");
+          window.location.href = "register.html";
+          return;
+        }
+
+        // Jika terverifikasi, lanjut ke halaman utama
+        window.location.href = "index.html";
+      } catch (error) {
+        alert("Login gagal: " + error.message);
+      }
+    });
+  </script>
+</body>
+</html>

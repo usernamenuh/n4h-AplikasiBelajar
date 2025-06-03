@@ -1,0 +1,34 @@
+{
+  "hosting": {
+    "public": "public",
+    "ignore": [
+      "firebase.json",
+      "**/.*",
+      "**/node_modules/**"
+    ],
+    "rewrites": [
+      {
+        "source": "**",
+        "destination": "/index.html"
+      }
+    ]
+  },
+  "database": {
+    "rules": "database.rules.json"
+  },
+  "rewrites": [
+  {
+    "source": "/hp",
+    "destination": "/hp.html"
+  },
+  {
+    "source": "/laptop",
+    "destination": "/index-laptop.html"
+  },
+  {
+    "source": "**",
+    "destination": "/index.html"
+  }
+]
+
+}

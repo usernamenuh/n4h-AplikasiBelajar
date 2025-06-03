@@ -1,0 +1,245 @@
+<!DOCTYPE html>
+<html lang="id">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Belajar - Laptop</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 0;
+            padding: 20px;
+            background-color: #f5f5f5;
+        }
+        .container {
+            max-width: 600px;
+            margin: 0 auto;
+            background: white;
+            padding: 20px;
+            border-radius: 10px;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+        }
+        h1 {
+            color: #333;
+            text-align: center;
+            margin-bottom: 20px;
+        }
+        #auth {
+            text-align: center;
+        }
+        input {
+            width: 100%;
+            padding: 10px;
+            margin: 8px 0;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            box-sizing: border-box;
+        }
+        button {
+            width: 100%;
+            padding: 10px;
+            background-color: #2196F3;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            margin: 8px 0;
+        }
+        button:hover {
+            background-color: #1976D2;
+        }
+        #dashboard {
+            text-align: center;
+        }
+        #timer {
+            font-size: 24px;
+            color: #2196F3;
+            padding: 20px;
+            background: #E3F2FD;
+            border-radius: 5px;
+            margin: 20px 0;
+        }
+        .button-group {
+            display: flex;
+            gap: 10px;
+            margin: 20px 0;
+        }
+        .button-group button {
+            flex: 1;
+        }
+        #startBtn {
+            background-color: #4CAF50;
+        }
+        #startBtn:hover {
+            background-color: #388E3C;
+        }
+        #stopBtn {
+            background-color: #f44336;
+        }
+        #stopBtn:hover {
+            background-color: #d32f2f;
+        }
+        .status {
+            text-align: center;
+            color: #666;
+            margin-top: 10px;
+        }
+        .user-controls {
+            margin-top: 20px;
+            padding-top: 20px;
+            border-top: 1px solid #eee;
+        }
+        #logoutBtn {
+            background-color: #757575;
+            width: auto;
+            padding: 8px 20px;
+            margin: 0 auto;
+            display: block;
+        }
+        #logoutBtn:hover {
+            background-color: #616161;
+        }
+        .user-info {
+            background-color: #f8f9fa;
+            padding: 10px;
+            border-radius: 4px;
+            margin-bottom: 20px;
+            color: #666;
+        }
+        .user-email {
+            color: #2196F3;
+            font-weight: bold;
+        }
+        .user-name {
+            color: #2196F3;
+            font-weight: bold;
+            font-size: 1.2em;
+        }
+    </style>
+</head>
+
+<body>
+    <div class="container">
+        <h1>Catatan Belajar Harian - Laptop</h1>
+
+        <div id="auth">
+            <input type="email" id="email" placeholder="Email">
+            <input type="password" id="password" placeholder="Password">
+            <button id="loginBtn">Login</button>
+            <p>Belum punya akun? <a href="register.html">Daftar di sini</a></p>
+        </div>
+
+        <div id="dashboard" style="display:none;">
+            <div class="user-info">
+                Selamat datang, <span id="userName" class="user-name">Loading...</span>
+            </div>
+            <div id="timer">Waktu belajar: 0 detik</div>
+            <div class="button-group">
+                <button id="startBtn">Mulai Belajar</button>
+                <button id="stopBtn">Stop Belajar</button>
+            </div>
+            <p class="status">Status: Belum mulai belajar</p>
+            <div class="user-controls">
+                <button id="logoutBtn">Logout</button>
+            </div>
+        </div>
+    </div>
+
+    <script type="module">
+        import { auth, db } from "./firebase.js";
+        import { ref, set, onValue } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-database.js";
+        import { signInWithEmailAndPassword, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js";
+
+        const emailInput = document.getElementById('email');
+        const passInput = document.getElementById('password');
+        const loginBtn = document.getElementById('loginBtn');
+        const startBtn = document.getElementById('startBtn');
+        const stopBtn = document.getElementById('stopBtn');
+        const logoutBtn = document.getElementById('logoutBtn');
+        const timerEl = document.getElementById('timer');
+        const authDiv = document.getElementById('auth');
+        const dashDiv = document.getElementById('dashboard');
+        const statusEl = document.querySelector('.status');
+        const userEmailEl = document.getElementById('userEmail');
+        const userNameEl = document.getElementById('userName');
+
+        let timer = 0;
+        let interval = null;
+        let uid = null;
+
+        // Check if user is already logged in
+        onAuthStateChanged(auth, user => {
+            if (user) {
+                uid = user.uid;
+                // Get user profile from database
+                const userProfileRef = ref(db, `users/${uid}/profile`);
+                onValue(userProfileRef, (snapshot) => {
+                    const profile = snapshot.val();
+                    if (profile) {
+                        userNameEl.textContent = profile.username;
+                    } else {
+                        userNameEl.textContent = user.email;
+                    }
+                });
+                
+                authDiv.style.display = 'none';
+                dashDiv.style.display = 'block';
+                // Listen for learning status
+                const belajarRef = ref(db, `users/${uid}/belajar`);
+                onValue(belajarRef, (snapshot) => {
+                    const data = snapshot.val();
+                    if (data?.running) {
+                        statusEl.textContent = "Status: Belajar aktif";
+                    } else {
+                        statusEl.textContent = "Status: Belum mulai belajar";
+                    }
+                });
+            } else {
+                // If not logged in, redirect to login page
+                window.location.href = 'login.html';
+            }
+        });
+
+        loginBtn.onclick = () => {
+            signInWithEmailAndPassword(auth, emailInput.value, passInput.value)
+                .then(() => {
+                    // Login successful, page will refresh and show dashboard
+                })
+                .catch(e => {
+                    alert("Login gagal: " + e.message);
+                });
+        };
+
+        logoutBtn.onclick = () => {
+            signOut(auth).then(() => {
+                // Sign-out successful, will redirect to login page
+                window.location.href = 'login.html';
+            }).catch((error) => {
+                alert("Logout gagal: " + error.message);
+            });
+        };
+
+        startBtn.onclick = () => {
+            if (!uid) return;
+            const startTime = Date.now();
+            set(ref(db, `users/${uid}/belajar`), { startTime, running: true });
+            interval = setInterval(() => {
+                timer++;
+                timerEl.textContent = `Waktu belajar: ${timer} detik`;
+            }, 1000);
+        };
+
+        stopBtn.onclick = () => {
+            if (!uid) return;
+            clearInterval(interval);
+            set(ref(db, `users/${uid}/belajar/running`), false);
+            timer = 0;
+            timerEl.textContent = `Waktu belajar: 0 detik`;
+        };
+
+        window.onload = () => timer = 0;
+    </script>
+</body>
+
+</html>
